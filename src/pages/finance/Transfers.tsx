@@ -4,10 +4,11 @@ import {
   ArrowRight, ArrowRightLeft, Check, ChevronLeft, ChevronRight, CircleAlert,
   Clock, Download, FileText, Landmark, Send, ShieldCheck, X,
 } from 'lucide-react'
-import { Panel, PageHeader, Screen, KeyValue, StatusPill, Progress, InlineAlert, Divider, EmptyState } from '@/components/ui'
+import { Panel, PageHeader, Screen, KeyValue, StatusPill, Progress, InlineAlert, Divider, EmptyState, ConfirmationCard, SimulatedNotice } from '@/components/ui'
 import { useEngine, selectOperator } from '@/services/engine'
 import { audio } from '@/services/audio'
 import { usePrefs } from '@/services/prefs'
+import { receiptBlob } from '@/services/receipt'
 import { cn, fmtDateTime, fmtMoney, downloadFile } from '@/lib/utils'
 import type { Transaction } from '@/types'
 
@@ -186,6 +187,257 @@ Generated locally by the SHADOW SYSTEMS simulation engine.`
               </div>
             ))}
           </div>
+
+          {!result && (
+            <div className="space-y-3">
+              {step === 0 && (
+                <div className="space-y-2">
+                  <label className="field-label">Select fictional source account</label>
+                  <div className="max-h-[300px] space-y-1.5 overflow-y-auto pr-1">
+                    {accounts.map((a) => (
+                      <button
+                        key={a.id}
+                        type="button"
+                        onClick={() => setSourceId(a.id)}
+                        className={cn(
+                          'flex w-full items-center justify-between border px-2.5 py-2 text-left transition-colors',
+                          sourceId === a.id ? 'border-[var(--accent)] bg-[var(--accent-soft)]' : 'border-line-soft hover:bg-elevated',
+                        )}
+                      >
+                        <span className="min-w-0">
+                          <span className="block text-[11.5px] text-ink">{a.holder}</span>
+                          <span className="block font-mono text-[9px] text-ink-3">{a.id} · {banks.find((b) => b.id === a.bankId)?.code} · {a.category}</span>
+                        </span>
+                        <span className="text-right">
+                          <span className="mono block text-[11px] tabular text-green">{fmtMoney(a.available, a.currency, true)}</span>
+                          <span className="mono block text-[8.5px] text-ink-3">AVAILABLE</span>
+                        </span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {step === 1 && (
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <div>
+                    <label className="field-label" htmlFor="saved-recipient">Saved demo recipient</label>
+                    <div className="relative">
+                      <select id="saved-recipient" className="field appearance-none" value={savedRecipient} onChange={(e) => { setSavedRecipient(e.target.value); if (!e.target.value) return }}>
+                        <option value="">— Manual entry —</option>
+                        {recipientOptions.map((a) => (
+                          <option key={a.id} value={a.id}>{a.holder} · {a.id}</option>
+                        ))}
+                      </select>
+                      <ChevronRight size={12} className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 rotate-90 text-ink-3" />
+                    </div>
+                  </div>
+                  <div>
+                    <label className="field-label" htmlFor="recipient-name">Recipient name (fictional)</label>
+                    <input id="recipient-name" className="field" value={recipient} onChange={(e) => setRecipient(e.target.value)} placeholder="e.g. Katarina Lindqvist" />
+                  </div>
+                  <div className="sm:col-span-2">
+                    <label className="field-label" htmlFor="recipient-acct">Recipient account reference</label>
+                    <input id="recipient-acct" className="field" value={recipientId} onChange={(e) => setRecipientId(e.target.value)} />
+                  </div>
+                </div>
+              )}
+
+              {step === 2 && (
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <div>
+                    <label className="field-label" htmlFor="amount">Transfer amount</label>
+                    <input id="amount" type="number" min="1" className="field text-base" value={amount} onChange={(e) => setAmount(e.target.value)} />
+                    <div className="mt-1.5 flex flex-wrap gap-1">
+                      {[5000, 25000, 100000, 250000].map((v) => (
+                        <button key={v} type="button" className="badge badge-grey hover:border-[var(--accent)] hover:text-ink" onClick={() => setAmount(String(v))}>
+                          {fmtMoney(v, currency, true)}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                  <div>
+                    <label className="field-label" htmlFor="channel">Payment channel</label>
+                    <select id="channel" className="field" value={channel} onChange={(e) => setChannel(e.target.value as Transaction['channel'])}>
+                      {['SWIFT', 'SEPA', 'WIRE', 'ACH', 'CRYPTO', 'INTERNAL'].map((c) => <option key={c} value={c}>{c}</option>)}
+                    </select>
+                    <p className="mt-1.5 font-mono text-[9px] text-ink-3">SIMULATED FEE ≈ {fmtMoney(fee, currency)} (0.14%)</p>
+                  </div>
+                  <div className="sm:col-span-2">
+                    <p className="label-xs mb-1">Source liquidity check</p>
+                    <Progress value={Math.min(100, (amountNum / Math.max(1, source?.available ?? 1)) * 100)} color={amountNum > (source?.available ?? 0) ? 'var(--color-red)' : 'var(--color-green)'} showValue />
+                    {amountNum > (source?.available ?? 0) && (
+                      <p className="mt-1 flex items-center gap-1 font-mono text-[9px] text-red"><CircleAlert size={9} /> Exceeds simulated available balance — likely decline.</p>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {step === 3 && (
+                <div>
+                  <label className="field-label">Select fictional currency</label>
+                  <div className="grid grid-cols-3 gap-1.5 sm:grid-cols-4">
+                    {['USD', 'EUR', 'GBP', 'CHF', 'SGD', 'AED', 'JPY', 'CAD'].map((c) => (
+                      <button key={c} type="button" onClick={() => setCurrency(c)} className={cn('border px-2 py-2 font-mono text-[11px]', currency === c ? 'border-[var(--accent)] bg-[var(--accent-soft)] text-[var(--accent)]' : 'border-line-soft text-ink-2 hover:bg-elevated')}>
+                        {c}
+                      </button>
+                    ))}
+                  </div>
+                  <p className="mt-2 font-mono text-[9px] text-ink-3">No FX conversion occurs — this is a display currency only.</p>
+                </div>
+              )}
+
+              {step === 4 && (
+                <div className="space-y-3">
+                  <div>
+                    <label className="field-label" htmlFor="note">Optional description</label>
+                    <textarea id="note" className="field min-h-[70px]" value={note} onChange={(e) => setNote(e.target.value)} placeholder="Reference note for the simulated transfer" />
+                  </div>
+                  <div>
+                    <label className="field-label">Simulated outcome</label>
+                    <div className="grid grid-cols-2 gap-1.5 sm:grid-cols-5">
+                      {([['auto', 'Automatic'], ['completed', 'Completed'], ['declined', 'Declined'], ['pending', 'Pending'], ['cancelled', 'Cancelled']] as const).map(([v, l]) => (
+                        <button key={v} type="button" onClick={() => setOutcome(v as Outcome | 'auto')} className={cn('border px-1.5 py-1.5 font-mono text-[9px] uppercase tracking-wider', outcome === v ? 'border-[var(--accent)] bg-[var(--accent-soft)] text-[var(--accent)]' : 'border-line-soft text-ink-3 hover:bg-elevated')}>
+                          {l}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {step === 5 && (
+                <div className="space-y-2">
+                  <div className="border border-line bg-[#0b1119] p-3">
+                    <div className="flex items-baseline justify-between border-b border-line pb-2">
+                      <div>
+                        <p className="label-xs">TRANSFER AMOUNT</p>
+                        <p className="stat-value text-2xl text-ink">{fmtMoney(amountNum, currency)}</p>
+                      </div>
+                      <span className="badge badge-amber">SIMULATED</span>
+                    </div>
+                    <div className="mt-2">
+                      <KeyValue
+                        items={[
+                          { k: 'From', v: `${source?.holder} (${sourceId})` },
+                          { k: 'To', v: `${recipient} (${recipientId})` },
+                          { k: 'Channel', v: channel },
+                          { k: 'Demo fee', v: fmtMoney(fee, currency) },
+                          { k: 'Net debit', v: fmtMoney(amountNum + fee, currency) },
+                          { k: 'Description', v: note || '—' },
+                        ]}
+                      />
+                    </div>
+                  </div>
+                  <div className="flex items-start gap-2 border border-[#6d5320] bg-[#2a2110] px-2.5 py-2">
+                    <CircleAlert size={12} className="mt-0.5 shrink-0 text-amber" />
+                    <p className="text-[10.5px] leading-relaxed text-[#ffd489]">
+                      This transfer will only update the internal demonstration ledger. Nothing is sent to a bank, payment
+                      processor or blockchain.
+                    </p>
+                  </div>
+                </div>
+              )}
+
+              {step === 6 && (
+                <div className="space-y-3">
+                  {!running && stage < 0 && (
+                    <button type="button" className="btn btn-primary w-full py-3" onClick={run}>
+                      <ShieldCheck size={13} /> RUN SIMULATION
+                    </button>
+                  )}
+                  {(running || stage >= 0) && (
+                    <div className="terminal-window p-3">
+                      <div className="flex items-center justify-between border-b border-[#1c2a36] pb-1.5">
+                        <span className="term text-[10px] uppercase tracking-widest text-[#79f0b9]">transfer-simulator.log</span>
+                        <span className="term text-[9px] text-ink-3">{running ? 'PROCESSING' : 'READY'}</span>
+                      </div>
+                      <div className="mt-2 min-h-[140px] space-y-1">
+                        {PROCESS_STAGES.map((s, i) => (
+                          <div key={s} className={cn('flex items-center gap-2 term text-[10.5px]', i <= stage ? 'text-[#79f0b9]' : 'text-ink-3/40')}>
+                            <span>{i <= stage ? '✔' : '·'}</span>
+                            <span>{s}…</span>
+                            {i === stage && running && <span className="animate-pulse">▌</span>}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          )}
+
+          {result && (
+            <div className="space-y-3">
+              <ConfirmationCard
+                dense
+                tone={result.status === 'completed' ? 'success' : result.status === 'pending' ? 'pending' : result.status === 'cancelled' ? 'neutral' : 'failed'}
+                title={
+                  result.status === 'completed' ? 'Payment confirmed'
+                    : result.status === 'declined' ? 'Payment declined'
+                    : result.status === 'pending' ? 'Transaction pending'
+                    : 'Transaction cancelled'
+                }
+                subtitle={`${result.sender} → ${result.recipient}`}
+                rows={[
+                  { label: 'Amount', value: fmtMoney(result.amount, result.currency), emphasis: true, mono: true },
+                  { label: 'Date', value: fmtDateTime(result.timestamp) },
+                  { label: 'Transaction ID', value: result.id, mono: true },
+                  { label: 'Reference', value: result.reference, mono: true },
+                  { label: 'Fee (simulated)', value: fmtMoney(result.fee, result.currency), mono: true },
+                  { label: 'Channel', value: result.channel },
+                ]}
+                note="This is a demonstration receipt. No funds moved and no institution was contacted."
+              />
+              <SimulatedNotice>Simulated transfer · non-settling</SimulatedNotice>
+              <div className="flex flex-wrap gap-2">
+                <button type="button" className="btn flex-1" onClick={() => {
+                  const r = receiptBlob({
+                    tone: result.status === 'completed' ? 'success' : result.status === 'pending' ? 'pending' : 'failed',
+                    title: result.status === 'completed' ? 'Payment confirmed' : result.status === 'pending' ? 'Payment pending' : 'Payment declined',
+                    subtitle: `${result.sender} → ${result.recipient}`,
+                    amount: { value: result.amount, currency: result.currency },
+                    reference: result.reference,
+                    operator: operator.callsign,
+                    rows: [
+                      { label: 'Amount', value: fmtMoney(result.amount, result.currency), mono: true },
+                      { label: 'Date', value: fmtDateTime(result.timestamp) },
+                      { label: 'Transaction ID', value: result.id, mono: true },
+                      { label: 'Reference', value: result.reference, mono: true },
+                      { label: 'Fee (simulated)', value: fmtMoney(result.fee, result.currency), mono: true },
+                      { label: 'Channel', value: result.channel },
+                      { label: 'From', value: `${result.sender} (${result.senderId})` },
+                      { label: 'To', value: `${result.recipient} (${result.recipientId})` },
+                    ],
+                    note: 'Every party, account and reference on this receipt is fictional.',
+                  })
+                  downloadFile(r.name, r.html, r.type)
+                }}>
+                  <Download size={11} /> Receipt
+                </button>
+                <button type="button" className="btn flex-1" onClick={() => navigate('/finance/transactions?q=' + result.id)}>
+                  <FileText size={11} /> Ledger entry
+                </button>
+                <button type="button" className="btn btn-primary flex-1" onClick={reset}>
+                  <ArrowRight size={11} /> New transfer
+                </button>
+              </div>
+              {result.status === 'pending' && (
+                <button
+                  type="button"
+                  className="btn w-full"
+                  onClick={() => {
+                    updateTransaction(result.id, { status: 'completed' })
+                    setResult({ ...result, status: 'completed' })
+                    if (soundEnabled) audio.play('txnComplete')
+                  }}
+                >
+                  <Check size={11} /> Approve demo transfer (simulated)
+                </button>
+              )}
+            </div>
+          )}
 
           {!result && (
             <div className="space-y-3">

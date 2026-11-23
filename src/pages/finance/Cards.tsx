@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react'
 import { CreditCard, Lock, Plus, Snowflake, Unlock, Wifi, ShieldAlert, Sliders } from 'lucide-react'
-import { Panel, PageHeader, Screen, StatusPill, Progress, KeyValue, Select, Modal, InlineAlert, Slider, EmptyState } from '@/components/ui'
+import { Panel, PageHeader, Screen, StatusPill, Progress, KeyValue, Select, Modal, InlineAlert, Slider, EmptyState, ConfirmationCard, SimulatedNotice } from '@/components/ui'
 import { useEngine } from '@/services/engine'
 import { cn, fmtMoney } from '@/lib/utils'
 import type { Card } from '@/types'
@@ -19,7 +19,8 @@ export default function Cards() {
   const addCard = useEngine((s) => s.addCard)
   const [selected, setSelected] = useState<string | null>(cards[0]?.id ?? null)
   const [createOpen, setCreateOpen] = useState(false)
-  const [form, setForm] = useState({ holder: '', accountId: accounts[0]?.id ?? '', category: 'DEBIT' as Card['category'], design: 'obsidian', limit: 25000 })
+  const [issued, setIssued] = useState<{ id: string; holder: string; last4: string; category: string; limit: number; design: string } | null>(null)
+  const [form, setForm] = useState({ holder: 'Demo Operator', accountId: accounts[0]?.id ?? '', category: 'DEBIT' as Card['category'], design: 'obsidian', limit: 25000 })
   const [revealed, setRevealed] = useState(false)
 
   const current = cards.find((c) => c.id === selected) ?? cards[0]
@@ -34,7 +35,7 @@ export default function Cards() {
 
   const submit = () => {
     if (!form.holder.trim()) return
-    addCard({
+    const card = addCard({
       holder: form.holder,
       accountId: form.accountId,
       last4: String(Math.floor(1000 + Math.random() * 9000)),
@@ -46,8 +47,16 @@ export default function Cards() {
       spent: 0,
       design: form.design,
     })
+    setIssued({
+      id: card.id,
+      holder: form.holder,
+      last4: card.last4,
+      category: form.category,
+      limit: form.limit,
+      design: DESIGNS[form.design]?.label ?? form.design,
+    })
     setCreateOpen(false)
-    setForm({ ...form, holder: '', limit: 25000 })
+    setForm({ ...form, holder: 'Demo Operator', limit: 25000 })
   }
 
   return (
@@ -222,6 +231,38 @@ export default function Cards() {
             <Slider label="Spending limit" value={form.limit} min={1000} max={100000} step={1000} onChange={(v) => setForm({ ...form, limit: v })} suffix=" USD" />
           </div>
         </div>
+      </Modal>
+
+      <Modal
+        open={!!issued}
+        onClose={() => setIssued(null)}
+        title="Card issued"
+        subtitle="Demonstration programme"
+        icon={CreditCard}
+        size="sm"
+        footer={<>
+          <button type="button" className="btn" onClick={() => setIssued(null)}>Done</button>
+          <button type="button" className="btn btn-primary" onClick={() => { setIssued(null); setCreateOpen(true) }}><Plus size={11} /> Issue another</button>
+        </>}
+      >
+        {issued && (
+          <div className="space-y-3">
+            <ConfirmationCard
+              tone="success"
+              title="Card issued"
+              subtitle={`${issued.holder} · ${issued.category}`}
+              rows={[
+                { label: 'Card', value: `•••• •••• •••• ${issued.last4}`, emphasis: true, mono: true },
+                { label: 'Card ID', value: issued.id, mono: true },
+                { label: 'Artwork', value: issued.design },
+                { label: 'Spending limit', value: fmtMoney(issued.limit, 'USD'), mono: true },
+                { label: 'Status', value: 'ACTIVE — DEMO' },
+              ]}
+              note="Placeholder identifiers only. Nothing was requested from, issued by, or registered with any card network."
+            />
+            <SimulatedNotice>Demo card · non-functional</SimulatedNotice>
+          </div>
+        )}
       </Modal>
     </Screen>
   )

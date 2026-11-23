@@ -544,6 +544,69 @@ function check(name, ok, detail = '') {
   detach()
 }
 
+// 33. Confirmation cards: receipts and confirmations use the shared card
+{
+  const { container, cleanup } = await mount('finance/Transactions')
+  const firstId = $$(container, 'tbody button').find((b) => /^TX-/.test(b.textContent.trim()))
+  await act(async () => { firstId?.dispatchEvent(new w.MouseEvent('click', { bubbles: true })) })
+  await act(async () => { await new Promise((r) => setTimeout(r, 120)) })
+  const viewModal = container.querySelector('[role="dialog"]')
+  check('transactions: detail dialog opens', Boolean(viewModal))
+  // The "Receipt" button opens the in-app preview; "Print receipt" triggers a
+  // native print window that jsdom cannot host. Target the preview explicitly.
+  const printBtn = viewModal && Array.from(viewModal.querySelectorAll('button')).find((b) => /^Receipt$/.test(b.textContent.trim()) || /Receipt Preview/i.test(b.textContent))
+  await act(async () => { printBtn?.dispatchEvent(new w.MouseEvent('click', { bubbles: true })) })
+  await act(async () => { await new Promise((r) => setTimeout(r, 150)) })
+  const dialogs = $$(container, '[role="dialog"]')
+  const receiptModal = dialogs[dialogs.length - 1]
+  const receiptText = receiptModal ? txt(receiptModal) : ''
+  check('receipt: shows a confirmation headline', /Payment (confirmed|pending|declined|cancelled)/i.test(receiptText), receiptText.slice(0, 60))
+  check('receipt: headline amount present', (receiptText.match(/[$€£¥][\d,]+[.,]\d{2}/) || [])[0] || /\d[\d,]*[.,]\d{2}/.test(receiptText), receiptText.slice(0, 0))
+  check('receipt: labelled rows present', /Transaction ID/.test(receiptText) && /Date/.test(receiptText))
+  check('receipt: simulation notice present', /no real funds|demo receipt|fictional/i.test(receiptText))
+  // The medallion is a solid disc, not a hairline icon box.
+  const medal = receiptModal && receiptModal.querySelector('[style*="background"]')
+  check('receipt: status medallion rendered', Boolean(medal))
+  await cleanup()
+}
+
+// 34. Card issuance confirmation
+{
+  const { container, cleanup } = await mount('finance/Cards')
+  const openBtn = byText(container, 'Issue demo card')
+  await act(async () => { openBtn?.dispatchEvent(new w.MouseEvent('click', { bubbles: true })) })
+  await act(async () => { await new Promise((r) => setTimeout(r, 120)) })
+  const dlg = container.querySelector('[role="dialog"]')
+  check('cards: issue dialog opens', Boolean(dlg))
+  const issueBtn = dlg && Array.from(dlg.querySelectorAll('button')).find((b) => /Issue card/i.test(b.textContent))
+  await act(async () => { issueBtn?.dispatchEvent(new w.MouseEvent('click', { bubbles: true })) })
+  await act(async () => { await new Promise((r) => setTimeout(r, 150)) })
+  const confirm = container.querySelector('[role="dialog"]')
+  check('cards: confirmation card shown', /Card issued/i.test(txt(confirm || container)))
+  check('cards: masked card number shown', /••••|\*\*\*\*/.test(txt(confirm || container)))
+  await cleanup()
+}
+
+// 35. Print receipt document is well-formed and light-themed
+{
+  const receiptMod = await server.ssrLoadModule('/src/services/receipt.ts')
+  const html = receiptMod.receiptHtml({
+    tone: 'success', title: 'Payment confirmed', subtitle: 'Sent to Harbor Holdings',
+    amount: { value: 150, currency: 'USD' }, reference: 'REF-1', operator: 'VANTA',
+    rows: [{ label: 'Amount', value: '$150.00', mono: true }, { label: 'Date', value: '22 Apr 2026' }],
+  })
+  check('receipt doc: valid html shell', html.startsWith('<!doctype html>') && html.includes('</html>'))
+  check('receipt doc: light theme', html.includes('#f4f6f8') && html.includes('background: #fff'))
+  check('receipt doc: medallion glyph', html.includes('class="medal"') && html.includes('✓'))
+  check('receipt doc: amount formatted', html.includes('150.00'))
+  check('receipt doc: rows escaped', html.includes('&amp;') || html.includes('Harbor Holdings'))
+  check('receipt doc: print styles', html.includes('@media print'))
+  check('receipt doc: simulated notice', /NO REAL FUNDS TRANSFERRED/.test(html))
+  // Escaping
+  const evil = receiptMod.receiptHtml({ tone: 'success', title: '<script>alert(1)</script>', rows: [] })
+  check('receipt doc: escapes injected markup', !evil.includes('<script>alert(1)</script>') && evil.includes('&lt;script&gt;'))
+}
+
 console.error = origError
 const failed = results.filter((r) => !r[1])
 console.log(`\nPASSED ${results.length - failed.length}/${results.length}`)

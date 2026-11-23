@@ -1,7 +1,6 @@
 import { useMemo, useState } from 'react'
 import { Package, Download, ShieldCheck, Search, Filter, Wallet, Check, X, RotateCcw, Truck, CircleCheck } from 'lucide-react'
-import { Panel, PageHeader, Screen, StatCard, StatusPill, Select, EmptyState, InlineAlert, KeyValue, Divider, Tabs, Tag, Modal, Progress } from '@/components/ui'
-import { Doc } from '@/components/ui/extras'
+import { Panel, PageHeader, Screen, StatCard, StatusPill, Select, EmptyState, InlineAlert, KeyValue, Divider, Tabs, Tag, Modal, Progress, ConfirmationCard, SimulatedNotice } from '@/components/ui'
 import { Donut, PALETTE, BarsTrend } from '@/components/charts'
 import { useEngine } from '@/services/engine'
 import { cn, downloadFile, fmtMoney, fmtDateTime, relTime, toCSV } from '@/lib/utils'
@@ -208,22 +207,30 @@ export default function Orders() {
           }}><Download size={11} /> Download receipt</button>
         </> : null}
       >
-        {order && (
-          <div className="space-y-3">
-            <Doc label="SIMULATED RECEIPT">{receiptText(order.id)}</Doc>
-            <KeyValue
-              items={[
-                { k: 'Escrow', v: order.escrow.toUpperCase() },
-                { k: 'Stage', v: order.status.toUpperCase() },
-                { k: 'Created', v: fmtDateTime(order.created) },
-                { k: 'Amount (demo)', v: fmtMoney(order.amount) },
-              ]}
-            />
-            <div className="flex items-center gap-1.5 border border-[#6e2633] bg-[#2a1016] p-2 text-[9.5px] text-[#ff9aa6]">
-              <X size={11} /> This receipt is a prop. It has no monetary value and records no real trade.
+        {order && (() => {
+          const listing = s.listings.find((l) => l.id === order.listingId)
+          const vendor = s.vendors.find((v) => v.id === order.vendorId)
+          return (
+            <div className="space-y-3">
+              <ConfirmationCard
+                tone={order.status === 'complete' ? 'success' : order.status === 'cancelled' ? 'neutral' : 'pending'}
+                title={order.status === 'complete' ? 'Order complete' : order.status === 'cancelled' ? 'Order cancelled' : 'Order placed'}
+                subtitle={`${listing?.title ?? order.listingId} · ${vendor?.handle ?? order.vendorId}`}
+                rows={[
+                  { label: 'Amount', value: `${fmtMoney(order.amount)} demo credits`, emphasis: true, mono: true },
+                  { label: 'Date', value: fmtDateTime(order.created) },
+                  { label: 'Order ID', value: order.id, mono: true },
+                  { label: 'Buyer', value: order.buyer },
+                  { label: 'Vendor', value: vendor?.handle ?? order.vendorId },
+                  { label: 'Escrow', value: `${order.escrow.toUpperCase()} (simulated)` },
+                  { label: 'Stage', value: order.status.toUpperCase() },
+                ]}
+                note="A fictional prop. No payment was processed, no goods exist, and no real party is involved."
+              />
+              <SimulatedNotice>Simulated order · not a real transaction</SimulatedNotice>
             </div>
-          </div>
-        )}
+          )
+        })()}
       </Modal>
     </Screen>
   )

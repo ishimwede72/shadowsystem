@@ -104,7 +104,7 @@ export interface EngineState {
   updateTransaction: (id: string, patch: Partial<Transaction>) => void
   addAccount: (a: Omit<Account, 'id'>) => Account
   addBank: (b: Omit<Bank, 'id'>) => Bank
-  addCard: (c: Omit<Card, 'id'>) => void
+  addCard: (c: Omit<Card, 'id'>) => Card
   toggleCardFreeze: (id: string) => void
   swapAssets: (from: string, to: string, fromAmount: number, result: number) => void
 
@@ -410,6 +410,7 @@ export const useEngine = create<EngineState>()(
           const card: Card = { ...c, id: `CRD-${pad(get().cards.length + 100, 3)}` }
           set({ cards: [card, ...get().cards] })
           get().notify({ type: 'finance', title: 'Card issued (simulated)', body: `${card.brand} ending ${card.last4} added to demo wallet.`, severity: 'low', module: 'finance' })
+          return card
         },
 
         toggleCardFreeze: (id) => {

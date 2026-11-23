@@ -1,10 +1,10 @@
 import { useMemo, useState } from 'react'
 import { ArrowDownUp, Bitcoin, Eye, EyeOff, LineChart, RefreshCw, Star, TrendingUp, Wallet } from 'lucide-react'
-import { Panel, PageHeader, Screen, StatusPill, KeyValue, Select, InlineAlert, Divider, Progress } from '@/components/ui'
+import { Panel, PageHeader, Screen, StatusPill, KeyValue, Select, InlineAlert, Divider, Progress, Modal, ConfirmationCard, SimulatedNotice } from '@/components/ui'
 import { AreaTrend, BarsTrend, Donut, PALETTE } from '@/components/charts'
 import { useEngine } from '@/services/engine'
 import { Sparkline as UISparkline } from '@/components/ui'
-import { cn, fmtMoney, fmtNum } from '@/lib/utils'
+import { cn, fmtDateTime, fmtMoney, fmtNum } from '@/lib/utils'
 
 export default function Crypto() {
   const assets = useEngine((s) => s.assets)
@@ -34,9 +34,13 @@ export default function Crypto() {
 
   const pnl = performance[performance.length - 1]?.portfolio - performance[0]?.portfolio
 
+  const [swapDone, setSwapDone] = useState<{ id: string; from: string; to: string; sold: number; bought: number; notional: number } | null>(null)
+
   const executeSwap = () => {
     if (!fromAsset || !toAsset || Number(amount) <= 0 || Number(amount) > fromAsset.holding) return
+    const snapshot = { id: `SWP-${String(Math.floor(Math.random() * 900000) + 100000)}`, from, to, sold: Number(amount), bought: result, notional }
     swapAssets(from, to, Number(amount), result)
+    setSwapDone(snapshot)
     setAmount('0.25')
   }
 
@@ -228,6 +232,35 @@ export default function Crypto() {
           </div>
         </Panel>
       </div>
+
+      <Modal
+        open={!!swapDone}
+        onClose={() => setSwapDone(null)}
+        title="Swap complete"
+        subtitle="Simulated digital asset swap"
+        icon={ArrowDownUp}
+        size="sm"
+        footer={<button type="button" className="btn btn-primary" onClick={() => setSwapDone(null)}>Done</button>}
+      >
+        {swapDone && (
+          <div className="space-y-3">
+            <ConfirmationCard
+              tone="success"
+              title="Swap complete"
+              subtitle={`${swapDone.from} → ${swapDone.to}`}
+              rows={[
+                { label: 'You sold', value: `${swapDone.sold} ${swapDone.from}`, emphasis: true, mono: true },
+                { label: 'You received', value: `${swapDone.bought.toFixed(6)} ${swapDone.to}`, mono: true },
+                { label: 'Notional', value: fmtMoney(swapDone.notional), mono: true },
+                { label: 'Swap ID', value: swapDone.id, mono: true },
+                { label: 'Date', value: fmtDateTime(Date.now()) },
+              ]}
+              note="Holdings in this demonstration wallet were updated locally. No blockchain, exchange or custodian was contacted."
+            />
+            <SimulatedNotice>Demo holdings only · no chain transaction</SimulatedNotice>
+          </div>
+        )}
+      </Modal>
     </Screen>
   )
 }

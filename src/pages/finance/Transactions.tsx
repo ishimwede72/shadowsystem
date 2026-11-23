@@ -4,8 +4,9 @@ import {
   ArrowDownRight, ArrowUpRight, Download, FileText, Filter, Printer, Receipt,
   Search, ShieldCheck, X, ChevronLeft, ChevronRight,
 } from 'lucide-react'
-import { Panel, PageHeader, Screen, StatusPill, Modal, Select, EmptyState, KeyValue, InlineAlert, SeverityPill } from '@/components/ui'
+import { Panel, PageHeader, Screen, StatusPill, Modal, Select, EmptyState, KeyValue, InlineAlert, SeverityPill, ConfirmationCard, SimulatedNotice } from '@/components/ui'
 import { useEngine, selectOperator } from '@/services/engine'
+import { printReceipt as printReceiptDoc } from '@/services/receipt'
 import { cn, downloadFile, fmtDateTime, fmtMoney, toCSV } from '@/lib/utils'
 import type { Transaction } from '@/types'
 
@@ -67,35 +68,30 @@ export default function Transactions() {
   }
 
   const printReceipt = (t: Transaction) => {
-    const w = window.open('', '_blank', 'width=560,height=760')
-    if (!w) return
-    w.document.write(`<!doctype html><html><head><title>Receipt ${t.reference}</title>
-    <style>body{font-family:ui-monospace,monospace;background:#fff;color:#111;padding:28px;max-width:460px;margin:auto}
-    h1{font-size:15px;letter-spacing:.16em;margin:0 0 2px} .muted{color:#666;font-size:9.5px;letter-spacing:.14em;text-transform:uppercase}
-    .sim{border:1px solid #c08a20;background:#fff8e6;color:#7a5200;padding:6px 8px;font-size:10px;margin:14px 0}
-    table{width:100%;border-collapse:collapse;font-size:11px}td{padding:5px 0;border-bottom:1px solid #eee;vertical-align:top}
-    td:first-child{color:#777;text-transform:uppercase;font-size:8.5px;letter-spacing:.12em;width:38%}
-    .tot{font-size:18px;font-weight:600;margin:14px 0}
-    .foot{margin-top:20px;font-size:8.5px;color:#888;line-height:1.6}</style></head><body>
-    <h1>SHADOW SYSTEMS</h1><p class="muted">Simulated transaction receipt</p>
-    <div class="sim">DEMONSTRATION RECEIPT — NO REAL FUNDS TRANSFERRED</div>
-    <p class="tot">${t.currency} ${t.amount.toLocaleString('en-US', { minimumFractionDigits: 2 })}</p>
-    <table>
-      <tr><td>Reference</td><td>${t.reference}</td></tr>
-      <tr><td>Transaction ID</td><td>${t.id}</td></tr>
-      <tr><td>Status</td><td>${t.status.toUpperCase()}</td></tr>
-      <tr><td>Type</td><td>${t.type.toUpperCase()}</td></tr>
-      <tr><td>Channel</td><td>${t.channel}</td></tr>
-      <tr><td>Sender</td><td>${t.sender} (${t.senderId})</td></tr>
-      <tr><td>Recipient</td><td>${t.recipient} (${t.recipientId})</td></tr>
-      <tr><td>Fee (sim)</td><td>${t.fee.toFixed(2)} ${t.currency}</td></tr>
-      <tr><td>Timestamp</td><td>${fmtDateTime(t.timestamp)}</td></tr>
-      <tr><td>Note</td><td>${t.note}</td></tr>
-    </table>
-    <p class="foot">Issued by the SHADOW SYSTEMS closed-loop simulation ledger. All institutions, account holders and
-    references are fictional. This document has no financial value.<br/>Operator: ${operator.callsign} · Generated ${fmtDateTime(Date.now())}</p>
-    <script>window.onload=()=>window.print()</script></body></html>`)
-    w.document.close()
+    printReceiptDoc({
+      tone: t.status === 'completed' ? 'success' : t.status === 'pending' ? 'pending' : t.status === 'cancelled' ? 'neutral' : 'failed',
+      title:
+        t.status === 'completed' ? 'Payment confirmed'
+          : t.status === 'pending' ? 'Payment pending'
+          : t.status === 'cancelled' ? 'Payment cancelled'
+          : 'Payment declined',
+      subtitle: `${t.type === 'incoming' ? 'Received from' : 'Sent to'} ${t.type === 'incoming' ? t.sender : t.recipient}`,
+      amount: { value: t.amount, currency: t.currency },
+      reference: t.reference,
+      operator: operator.callsign,
+      rows: [
+        { label: 'Amount', value: fmtMoney(t.amount, t.currency), mono: true },
+        { label: 'Date', value: fmtDateTime(t.timestamp) },
+        { label: 'Transaction ID', value: t.id, mono: true },
+        { label: 'Reference', value: t.reference, mono: true },
+        { label: 'Rail', value: t.channel },
+        { label: 'Fee (simulated)', value: fmtMoney(t.fee, t.currency), mono: true },
+        { label: 'From', value: `${t.sender} (${t.senderId})` },
+        { label: 'To', value: `${t.recipient} (${t.recipientId})` },
+        ...(t.note ? [{ label: 'Note', value: t.note }] : []),
+      ],
+      note: 'Every party, account and reference on this receipt is fictional.',
+    })
   }
 
   return (
@@ -273,35 +269,30 @@ export default function Transactions() {
         </>}
       >
         {receipt && (
-          <div className="border border-line bg-[#0a1017] p-4 font-mono text-[11px]">
-            <div className="flex items-start justify-between border-b border-dashed border-line pb-2">
-              <div>
-                <p className="font-display text-[13px] font-bold tracking-[0.2em] text-ink">SHADOW SYSTEMS</p>
-                <p className="text-[8.5px] uppercase tracking-[0.22em] text-ink-3">Simulated receipt</p>
-              </div>
-              <StatusPill value={receipt.status} />
-            </div>
-            <div className="my-2 border border-[#6d5320] bg-[#2a2110] px-2 py-1 text-[8.5px] uppercase tracking-[0.14em] text-[#ffd489]">
-              Demonstration receipt — no real funds transferred
-            </div>
-            <p className="my-2 stat-value text-xl text-ink">{fmtMoney(receipt.amount, receipt.currency)}</p>
-            {[
-              ['Reference', receipt.reference],
-              ['Sender', `${receipt.sender} (${receipt.senderId})`],
-              ['Recipient', `${receipt.recipient} (${receipt.recipientId})`],
-              ['Rail', receipt.channel],
-              ['Fee', fmtMoney(receipt.fee, receipt.currency)],
-              ['Timestamp', fmtDateTime(receipt.timestamp)],
-              ['Note', receipt.note],
-            ].map(([k, v]) => (
-              <div key={k} className="flex justify-between gap-3 border-b border-line-soft/60 py-1">
-                <span className="text-[8.5px] uppercase tracking-[0.12em] text-ink-3">{k}</span>
-                <span className="max-w-[62%] truncate text-right text-[10px] text-ink-2">{v}</span>
-              </div>
-            ))}
-            <p className="mt-2 text-[8px] leading-relaxed text-ink-3">
-              Issued by the closed-loop simulation ledger. No financial value. Operator {operator.callsign}.
-            </p>
+          <div className="space-y-3">
+            <ConfirmationCard
+              tone={receipt.status === 'completed' ? 'success' : receipt.status === 'pending' ? 'pending' : receipt.status === 'cancelled' ? 'neutral' : 'failed'}
+              title={
+                receipt.status === 'completed' ? 'Payment confirmed'
+                  : receipt.status === 'pending' ? 'Payment pending'
+                  : receipt.status === 'cancelled' ? 'Payment cancelled'
+                  : 'Payment declined'
+              }
+              subtitle={`${receipt.type === 'incoming' ? 'Received from' : 'Sent to'} ${receipt.type === 'incoming' ? receipt.sender : receipt.recipient}`}
+              rows={[
+                { label: 'Amount', value: fmtMoney(receipt.amount, receipt.currency), emphasis: true, mono: true },
+                { label: 'Date', value: fmtDateTime(receipt.timestamp) },
+                { label: 'Transaction ID', value: receipt.id, mono: true },
+                { label: 'Reference', value: receipt.reference, mono: true },
+                { label: 'Rail', value: receipt.channel },
+                { label: 'Fee (simulated)', value: fmtMoney(receipt.fee, receipt.currency), mono: true },
+                { label: 'From', value: `${receipt.sender} (${receipt.senderId})` },
+                { label: 'To', value: `${receipt.recipient} (${receipt.recipientId})` },
+                { label: 'Note', value: receipt.note },
+              ]}
+              note={`Every party, account and reference on this receipt is fictional. Generated locally · Operator ${operator.callsign}.`}
+            />
+            <SimulatedNotice>Demo receipt — no real funds transferred</SimulatedNotice>
           </div>
         )}
       </Modal>

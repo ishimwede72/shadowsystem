@@ -5,6 +5,9 @@ import type { LucideIcon } from 'lucide-react'
 import type { Severity, RiskLevel } from '@/types'
 import { audio } from '@/services/audio'
 
+export { ConfirmationCard, SimulatedNotice, PerforatedEdge } from './ConfirmationCard'
+export type { ConfirmRow, ConfirmTone } from './ConfirmationCard'
+
 // ---------------------------------------------------------------- Panel -----
 export function Panel({
   title,
