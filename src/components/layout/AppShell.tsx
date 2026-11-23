@@ -1,4 +1,4 @@
-import { Suspense, useEffect, useState } from 'react'
+import { Suspense, useEffect, useRef, useState } from 'react'
 import { Outlet, useLocation, useNavigate } from 'react-router-dom'
 import { motion } from 'framer-motion'
 import { Sidebar } from './Sidebar'
@@ -9,6 +9,8 @@ import { GlobalSearch } from './GlobalSearch'
 import { HelpCenter } from './HelpCenter'
 import { useEngine } from '@/services/engine'
 import { usePrefs } from '@/services/prefs'
+import { audio } from '@/services/audio'
+import { SoundLayer } from './SoundLayer'
 import { cn } from '@/lib/utils'
 import { EmergencyOverlay } from '@/components/crisis/EmergencyOverlay'
 import { PageLoader } from '@/components/ui/PageLoader'
@@ -27,6 +29,7 @@ export function AppShell() {
   const resetSimulation = useEngine((s) => s.resetSimulation)
 
   const [mobileNav, setMobileNav] = useState(false)
+  const mainRef = useRef<HTMLElement | null>(null)
   const [palette, setPalette] = useState(false)
   const [search, setSearch] = useState(false)
   const [notifications, setNotifications] = useState(false)
@@ -128,13 +131,17 @@ export function AppShell() {
     return () => window.removeEventListener('keydown', onKey)
   }, [collapsed, setPref, navigate, resetSimulation, togglePause, setCinematic])
 
-  // close mobile nav on route change
+  // Close mobile nav on route change, reset scroll position and fire the
+  // navigation cue. One effect so the three always happen together.
   useEffect(() => {
     setMobileNav(false)
+    mainRef.current?.scrollTo({ top: 0 })
+    audio.play('navigate')
   }, [location.pathname])
 
   return (
-    <div className={cn('flex h-screen overflow-hidden bg-bg', cinematic && 'cinematic-mode')}>
+    <div className={cn('flex h-[100dvh] overflow-hidden bg-bg', cinematic && 'cinematic-mode')}>
+      <SoundLayer />
       {/* desktop sidebar */}
       <div className="hidden shrink-0 lg:block">
         <Sidebar collapsed={collapsed} onToggleCollapsed={() => setPref('sidebarCollapsed', !collapsed)} />
@@ -158,15 +165,15 @@ export function AppShell() {
           onOpenPalette={() => setPalette(true)}
           onOpenHelp={() => setHelp(true)}
         />
-        <main className="relative min-h-0 flex-1 overflow-y-auto">
+        <main ref={mainRef} className="relative min-h-0 flex-1 overflow-y-auto">
           <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_20%_-10%,color-mix(in_srgb,var(--accent)_7%,transparent),transparent_55%)]" />
           <div className="relative p-2.5 sm:p-3 lg:p-4 lg:pt-[30px]">
             <Suspense fallback={<PageLoader />}>
               <motion.div
                 key={location.pathname}
-                initial={{ opacity: 0, y: 6 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.18, ease: 'easeOut' }}
+                initial={{ opacity: 0, y: cinematic ? 12 : 6, filter: 'blur(2px)' }}
+                animate={{ opacity: 1, y: 0, filter: 'blur(0px)' }}
+                transition={{ duration: cinematic ? 0.34 : 0.2, ease: [0.16, 1, 0.3, 1] }}
               >
                 <Outlet />
               </motion.div>

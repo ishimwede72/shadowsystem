@@ -2,13 +2,14 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import {
   Search, CornerDownLeft, ArrowUp, ArrowDown, LayoutGrid, Crosshair,
-  RotateCcw, Siren, Volume2, Moon, Sparkles, FileDown, Wand2, Signal,
+  RotateCcw, Siren, Volume2, Moon, Sparkles, FileDown, Wand2, Signal, Circle, Square, Film,
 } from 'lucide-react'
 import { NAV_GROUPS } from '@/config/nav'
 import { cn, downloadFile, toCSV, pad } from '@/lib/utils'
 import { useEngine } from '@/services/engine'
 import { ShadowMark } from '@/components/brand/Logo'
 import { usePrefs } from '@/services/prefs'
+import { useRecorder } from '@/services/recorder'
 
 interface Item {
   id: string
@@ -34,6 +35,7 @@ export function CommandPalette({ open, onClose }: { open: boolean; onClose: () =
   const togglePause = useEngine((s) => s.togglePause)
   const notifications = useEngine((s) => s.notifications)
   const transactions = useEngine((s) => s.transactions)
+  const recorder = useRecorder()
   const setCinematic = useEngine.setState
   const setPref = usePrefs((s) => s.set)
   const soundEnabled = usePrefs((s) => s.soundEnabled)
@@ -54,6 +56,31 @@ export function CommandPalette({ open, onClose }: { open: boolean; onClose: () =
       })),
     )
     const actions: Item[] = [
+      recorder.recording
+        ? {
+            id: 'act-rec-stop',
+            label: 'Stop & save recording',
+            hint: `${recorder.live.length} frames captured`,
+            group: 'Recorder',
+            icon: Square,
+            run: () => { recorder.stop(); onClose() },
+          }
+        : {
+            id: 'act-rec-start',
+            label: 'Arm scenario recorder',
+            hint: 'Capture every bus event to a replayable tape',
+            group: 'Recorder',
+            icon: Circle,
+            run: () => { recorder.start(); onClose() },
+          },
+      {
+        id: 'act-rec-open',
+        label: 'Open scenario recorder',
+        hint: `${recorder.recordings.length} saved takes`,
+        group: 'Recorder',
+        icon: Film,
+        run: () => { navigate('/missions/recorder'); onClose() },
+      },
       {
         id: 'act-sim-reset',
         label: 'Reset demonstration',

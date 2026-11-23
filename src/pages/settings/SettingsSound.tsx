@@ -1,13 +1,27 @@
 import { useState } from 'react'
 import {
   Volume2, VolumeX, Play, Music, Bell, Radio, Keyboard, Power, Siren, CheckCircle2,
-  XCircle, Camera, Rocket, Waves, Info, RotateCcw, Gauge,
+  XCircle, Camera, Rocket, Waves, Info, RotateCcw, Gauge, Layers2, Square,
 } from 'lucide-react'
 import { Panel, PageHeader, Screen, StatCard, StatusPill, Toggle, Slider, InlineAlert, Divider, KeyValue, Tag } from '@/components/ui'
 import { AreaTrend, PALETTE, ChartLegend, BarsTrend } from '@/components/charts'
 import { usePrefs } from '@/services/prefs'
-import { audio, type SoundKey } from '@/services/audio'
+import { audio, SOUND_GROUPS, SOUND_LABELS as SOUND_LABEL_LOOKUP, type SoundKey } from '@/services/audio'
 import { cn, pad } from '@/lib/utils'
+
+const DESCRIPTORS: Partial<Record<SoundKey, { desc: string; icon: typeof Bell }>> = {
+  navigate: { desc: 'Route change', icon: Radio },
+  panelOpen: { desc: 'Panel or drawer opened', icon: Layers2 },
+  modalClose: { desc: 'Dialog dismissed', icon: XCircle },
+  toggle: { desc: 'Switch flipped', icon: Gauge },
+  hoverTick: { desc: 'Pointer hover tick', icon: Info },
+  recordArm: { desc: 'Scenario recorder armed', icon: Rocket },
+  playbackStart: { desc: 'Tape playback started', icon: Play },
+  playbackStop: { desc: 'Tape playback stopped', icon: Square },
+  lockOn: { desc: 'Target lock acquired', icon: Siren },
+  scan: { desc: 'Sweep / scan pass', icon: Waves },
+  uplink: { desc: 'Data uplink handshake', icon: Radio },
+}
 
 const SOUNDS: { key: SoundKey; label: string; desc: string; icon: typeof Bell }[] = [
   { key: 'startup', label: 'Startup', desc: 'Boot sequence complete', icon: Power },
@@ -21,6 +35,12 @@ const SOUNDS: { key: SoundKey; label: string; desc: string; icon: typeof Bell }[
   { key: 'notify', label: 'Notify', desc: 'Generic notification', icon: Bell },
   { key: 'camera', label: 'Camera', desc: 'Feed state change', icon: Camera },
   { key: 'shutdown', label: 'Shutdown', desc: 'Session ending', icon: Power },
+  ...(Object.keys(DESCRIPTORS) as SoundKey[]).map((key) => ({
+    key,
+    label: SOUND_LABEL_LOOKUP[key] ?? key,
+    desc: DESCRIPTORS[key]!.desc,
+    icon: DESCRIPTORS[key]!.icon,
+  })),
 ]
 
 export default function SettingsSound() {
@@ -67,7 +87,7 @@ export default function SettingsSound() {
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
         <StatCard label="State" value={p.soundEnabled ? 'On' : 'Muted'} icon={p.soundEnabled ? Volume2 : VolumeX} accent={p.soundEnabled ? 'green' : 'grey'} />
         <StatCard label="Volume" value={`${Math.round(p.volume * 100)}%`} icon={Gauge} accent="cyan" />
-        <StatCard label="Cues" value={SOUNDS.length} icon={Music} accent="blue" />
+        <StatCard label="Cues" value={SOUNDS.length} icon={Music} accent="blue" sub={`${p.mutedCues.length} muted`} />
         <StatCard label="Last played" value={lastPlayed ?? '—'} icon={Bell} accent="amber" />
       </div>
 
@@ -97,25 +117,87 @@ export default function SettingsSound() {
               </div>
             </div>
             <Divider />
+            <div className="flex flex-wrap items-center justify-between gap-2 border border-line bg-bg px-2 py-1.5">
+              <div className="flex items-center gap-2">
+                <Waves size={14} className={p.ambient ? 'text-[var(--accent)]' : 'text-ink-3'} />
+                <div>
+                  <p className="text-[10.5px] text-ink">Ambient operations bed</p>
+                  <p className="text-[8.5px] text-ink-3">Three detuned drones, filtered room tone and a slow LFO. Requires audio enabled.</p>
+                </div>
+              </div>
+              <Toggle
+                checked={p.ambient}
+                disabled={!p.soundEnabled}
+                onChange={(v) => {
+                  p.set('ambient', v)
+                  audio.setEnabled(p.soundEnabled)
+                  audio.setVolume(p.volume)
+                  audio.setAmbient(v && p.soundEnabled)
+                  if (v && p.soundEnabled) audio.play('uplink')
+                }}
+                label="Ambient bed"
+              />
+            </div>
+            <Divider />
             <p className="font-mono text-[8px] leading-relaxed text-ink-3">The browser requires a user gesture before audio can start — the first cue may be prepared silently until you click.</p>
           </Panel>
 
           <Panel title="Cue Library" icon={Music} bodyClassName="p-0"
-            actions={<span className="mono text-[8.5px] text-ink-3">{SOUNDS.length} cues</span>}
+            actions={
+              <span className="mono text-[8.5px] text-ink-3">
+                {SOUNDS.length - p.mutedCues.length}/{SOUNDS.length} active
+              </span>
+            }
           >
-            <ul className="divide-y divide-line-soft">
-              {SOUNDS.map((sn) => (
-                <li key={sn.key} className={cn('flex items-center gap-2 px-2.5 py-1.5', lastPlayed === sn.key && 'bg-[color-mix(in_srgb,var(--accent)_5%,transparent)]')}>
-                  <span className="grid h-6 w-6 shrink-0 place-items-center rounded-sm border border-line text-[var(--accent)]"><sn.icon size={11} /></span>
-                  <span className="min-w-0 flex-1">
-                    <span className="block text-[10.5px] text-ink">{sn.label}</span>
-                    <span className="block text-[8.5px] text-ink-3">{sn.desc}</span>
-                  </span>
-                  <span className="mono hidden text-[8px] text-ink-3 sm:block">{sn.key}</span>
-                  <button type="button" className="btn btn-sm !px-2" title={`Preview ${sn.label}`} aria-label={`Preview ${sn.label}`} onClick={() => play(sn.key)}><Play size={9} /></button>
-                </li>
-              ))}
-            </ul>
+            {SOUND_GROUPS.map((group) => (
+              <div key={group.group}>
+                <div className="flex items-center justify-between border-y border-line-soft bg-bg-2/60 px-2.5 py-1">
+                  <span className="label-xs">{group.group}</span>
+                  <button
+                    type="button"
+                    className="font-mono text-[8px] text-ink-3 hover:text-ink"
+                    onClick={() => {
+                      const allMuted = group.keys.every((k) => p.mutedCues.includes(k))
+                      const next = allMuted
+                        ? p.mutedCues.filter((k) => !group.keys.includes(k as SoundKey))
+                        : Array.from(new Set([...p.mutedCues, ...group.keys]))
+                      p.set('mutedCues', next)
+                      audio.setMutedCues(next as SoundKey[])
+                      audio.play('toggle')
+                    }}
+                  >
+                    {group.keys.every((k) => p.mutedCues.includes(k)) ? 'Enable all' : 'Mute all'}
+                  </button>
+                </div>
+                <ul className="divide-y divide-line-soft">
+                  {group.keys.map((key) => {
+                    const meta = SOUNDS.find((x) => x.key === key)
+                    const Icon = meta?.icon ?? Bell
+                    const isMuted = p.mutedCues.includes(key)
+                    return (
+                      <li key={key} className={cn('flex items-center gap-2 px-2.5 py-1.5', lastPlayed === key && 'bg-[color-mix(in_srgb,var(--accent)_5%,transparent)]', isMuted && 'opacity-45')}>
+                        <span className="grid h-6 w-6 shrink-0 place-items-center rounded-sm border border-line text-[var(--accent)]"><Icon size={11} /></span>
+                        <span className="min-w-0 flex-1">
+                          <span className="block text-[10.5px] text-ink">{SOUND_LABEL_LOOKUP[key]}</span>
+                          <span className="block text-[8.5px] text-ink-3">{meta?.desc ?? ''}</span>
+                        </span>
+                        <span className="mono hidden text-[8px] text-ink-3 sm:block">{key}</span>
+                        <Toggle
+                          checked={!isMuted}
+                          onChange={(on) => {
+                            const next = on ? p.mutedCues.filter((k) => k !== key) : [...p.mutedCues, key]
+                            p.set('mutedCues', next)
+                            audio.setMutedCues(next as SoundKey[])
+                          }}
+                          label={`${SOUND_LABEL_LOOKUP[key]} enabled`}
+                        />
+                        <button type="button" className="btn btn-sm !px-2" title={`Preview ${SOUND_LABEL_LOOKUP[key]}`} aria-label={`Preview ${SOUND_LABEL_LOOKUP[key]}`} onClick={() => play(key)}><Play size={9} /></button>
+                      </li>
+                    )
+                  })}
+                </ul>
+              </div>
+            ))}
           </Panel>
 
           <div className="grid gap-3 sm:grid-cols-2">

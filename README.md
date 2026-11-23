@@ -43,11 +43,35 @@ locally and unlocks the console shell.
 | **SHADOW AI** | `/ai` | Rule-based analyst: chat, report compiler, cross-module analysis sweeps, configuration |
 | **Crisis Management** | `/crisis` | Incident board, alert centre, infrastructure monitor, crisis timeline, emergency HUD |
 | **Communications** | `/communications` | Operator chat, roster, voice console, dispatch broadcast |
-| **Missions** | `/missions` | Mission control, builder, live console, archive, six scenario templates |
+| **Missions** | `/missions` | Mission control, builder, live console, archive, six scenario templates, **scenario recorder** |
 | **Reports** | `/reports` | Local report library, six department generators, full report view |
 | **Settings** | `/settings` | General, profile, appearance, sound, shortcuts, simulation engine, data & storage |
 
 Plus `/cinematic`, `/system` (404) and a command palette (`Ctrl/⌘ + K`).
+
+### Scenario Recorder (`/missions/recorder`)
+
+Arm the recorder, operate any module, and every event on the shared bus is written to a
+timestamped tape. Takes replay at 0.5–4×, scrub, pause and resume; they can be exported as
+JSON, re-imported in another browser, or promoted into a mission draft whose events mirror
+the take. Recording survives page navigation because it subscribes to the engine store
+rather than to React.
+
+### Motion system
+
+`--anim-scale` (0.35 → 1.35) multiplies every bespoke animation, driven by the
+Cinematic / Standard / Minimal switch in Settings → Appearance. Server-side reduced-motion
+preferences and the `data-motion="reduced"` attribute override it unconditionally. Named
+utilities: `.anim-reveal`, `.anim-sweep`, `.anim-trace`, `.anim-ticker`, `.anim-glow`,
+`.anim-bar`, `.anim-ring`, `.anim-hud`, `.anim-shake`, `.stagger-children`.
+
+### Sound engine
+
+Twenty-four cues, all synthesised at runtime with the Web Audio API — no audio files, no
+autoplay, muted until enabled. A delegated listener in `SoundLayer` gives every button,
+link, switch and table row a click or hover cue without per-component wiring, and each cue
+can be muted individually in Settings → Sound. An optional ambient bed (three detuned
+drones, filtered room tone, slow LFO) sits under the interface.
 
 ## Simulation engine
 
@@ -106,12 +130,12 @@ Or run the pieces individually:
 npx tsc -b --noEmit            # strict type check
 npx vite build                 # production bundle
 npm run lint                   # oxlint (0 errors)
-node scripts/review.mjs        # structural/visual review of all 98 pages
-node scripts/smoke.mjs         # server-renders all 98 pages
+node scripts/review.mjs        # structural/visual review of all 99 pages
+node scripts/smoke.mjs         # server-renders all 99 pages
 node scripts/mount.mjs         # client-mounts pages in jsdom (effects + timers)
 node scripts/app-check.mjs /finance /missions/active   # full router + shell per route
 node scripts/audit.mjs         # content + accessibility audit
-node scripts/interact.mjs      # 51 click-through behaviour assertions
+node scripts/interact.mjs      # 74 click-through behaviour assertions
 ```
 
 | Harness | What it protects |
@@ -121,13 +145,13 @@ node scripts/interact.mjs      # 51 click-through behaviour assertions
 | `mount.mjs` | Every page mounts in a real DOM, effects and timers included (catches runtime errors SSR hides) |
 | `app-check.mjs` | Each route resolves through the real `App` router and renders the shell with a sensible title |
 | `audit.mjs` | No `NaN`/`undefined`/`TODO` leakage into the UI; every button, input and image has an accessible name |
-| `interact.mjs` | The flows actually do something: crisis escalation, dispatch, report compile, mission launch, settings, … |
+| `interact.mjs` | The flows actually do something: crisis escalation, dispatch, report compile, mission launch, recorder arm/capture/replay/export, settings, … |
 
 `scripts/page-list.mjs` is the single inventory of pages that all harnesses read from — add a page there once and every
 check covers it.
 
-Current status: **type check clean · lint 0 errors · production build clean · 98/98 pages render · 98/98 mount with zero
-warnings · 101/101 routes render the shell · 0 placeholder leaks · 0 accessibility findings · 51/51 interactions pass.**
+Current status: **type check clean · lint 0 errors · production build clean · 99/99 pages render · 99/99 mount with zero
+warnings · 102/102 routes render the shell · 0 placeholder leaks · 0 accessibility findings · 74/74 interactions pass.**
 
 ## Accessibility & ergonomics
 

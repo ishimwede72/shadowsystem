@@ -690,3 +690,215 @@
   color: #93a3b4 !important;
   margin-bottom: 2px !important;
 }
+
+/* ===========================================================================
+   MOTION SYSTEM
+   --anim-scale (0.35 → 1.35) multiplies every bespoke animation. Animations
+   read it so the Cinematic / Standard / Minimal switch changes the feel of the
+   whole app in one place, and [data-motion='reduced'] still wins.
+   ========================================================================= */
+
+@keyframes reveal-up {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes sweep-in {
+  from {
+    clip-path: inset(0 100% 0 0);
+  }
+  to {
+    clip-path: inset(0 0 0 0);
+  }
+}
+
+@keyframes glow-pulse {
+  0%,
+  100% {
+    box-shadow: 0 0 0 0 color-mix(in srgb, var(--accent) 0%, transparent);
+  }
+  50% {
+    box-shadow: 0 0 18px 0 color-mix(in srgb, var(--accent) 22%, transparent);
+  }
+}
+
+@keyframes trace-line {
+  from {
+    stroke-dashoffset: var(--trace-len, 400);
+  }
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+
+@keyframes rise-fade {
+  0% {
+    opacity: 0;
+    transform: translateY(6px) scale(0.98);
+  }
+  15% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+  80% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+    transform: translateY(-14px) scale(1);
+  }
+}
+
+@keyframes bar-grow {
+  from {
+    transform: scaleY(0);
+  }
+  to {
+    transform: scaleY(1);
+  }
+}
+
+@keyframes ring-expand {
+  from {
+    transform: scale(0.4);
+    opacity: 0.85;
+  }
+  to {
+    transform: scale(2.1);
+    opacity: 0;
+  }
+}
+
+@keyframes ticker-in {
+  from {
+    opacity: 0;
+    transform: translateX(-12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes shake-x {
+  0%,
+  100% {
+    transform: translateX(0);
+  }
+  20% {
+    transform: translateX(-3px);
+  }
+  40% {
+    transform: translateX(3px);
+  }
+  60% {
+    transform: translateX(-2px);
+  }
+  80% {
+    transform: translateX(2px);
+  }
+}
+
+@keyframes hud-corners {
+  0%,
+  100% {
+    opacity: 0.35;
+  }
+  50% {
+    opacity: 0.75;
+  }
+}
+
+/* Plain classes: @utility only emits when the class appears in scanned source,
+   and these are referenced from reset selectors too. */
+.anim-reveal {
+  animation: reveal-up calc(0.34s / var(--anim-scale, 1)) cubic-bezier(0.22, 0.61, 0.36, 1) both;
+}
+.anim-sweep {
+  animation: sweep-in calc(0.5s / var(--anim-scale, 1)) cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+.anim-glow {
+  animation: glow-pulse calc(2.6s / var(--anim-scale, 1)) ease-in-out infinite;
+}
+.anim-trace {
+  stroke-dasharray: var(--trace-len, 400);
+  animation: trace-line calc(1.1s / var(--anim-scale, 1)) ease-out both;
+}
+.anim-rise {
+  animation: rise-fade calc(1.5s / var(--anim-scale, 1)) ease-out both;
+}
+.anim-bar {
+  transform-origin: bottom;
+  animation: bar-grow calc(0.5s / var(--anim-scale, 1)) cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+.anim-ring {
+  animation: ring-expand calc(1.8s / var(--anim-scale, 1)) ease-out infinite;
+}
+.anim-ticker {
+  animation: ticker-in calc(0.28s / var(--anim-scale, 1)) ease-out both;
+}
+.anim-shake {
+  animation: shake-x calc(0.4s / var(--anim-scale, 1)) ease-in-out;
+}
+.anim-hud {
+  animation: hud-corners calc(3.4s / var(--anim-scale, 1)) ease-in-out infinite;
+}
+
+/* Stagger helper: children reveal in sequence. */
+.stagger-children > * {
+  animation: reveal-up calc(0.34s / var(--anim-scale, 1)) cubic-bezier(0.22, 0.61, 0.36, 1) both;
+}
+.stagger-children > *:nth-child(1) { animation-delay: 0ms; }
+.stagger-children > *:nth-child(2) { animation-delay: calc(45ms / var(--anim-scale, 1)); }
+.stagger-children > *:nth-child(3) { animation-delay: calc(90ms / var(--anim-scale, 1)); }
+.stagger-children > *:nth-child(4) { animation-delay: calc(135ms / var(--anim-scale, 1)); }
+.stagger-children > *:nth-child(5) { animation-delay: calc(180ms / var(--anim-scale, 1)); }
+.stagger-children > *:nth-child(6) { animation-delay: calc(225ms / var(--anim-scale, 1)); }
+.stagger-children > *:nth-child(7) { animation-delay: calc(270ms / var(--anim-scale, 1)); }
+.stagger-children > *:nth-child(8) { animation-delay: calc(315ms / var(--anim-scale, 1)); }
+.stagger-children > *:nth-child(n + 9) { animation-delay: calc(360ms / var(--anim-scale, 1)); }
+
+/* Minimal intensity: keep meaning, drop the movement. */
+[data-anim='minimal'] .anim-reveal,
+[data-anim='minimal'] .anim-sweep,
+[data-anim='minimal'] .anim-trace,
+[data-anim='minimal'] .anim-bar,
+[data-anim='minimal'] .stagger-children > * {
+  animation: none !important;
+}
+
+[data-motion='reduced'] .anim-reveal,
+[data-motion='reduced'] .anim-sweep,
+[data-motion='reduced'] .anim-rise,
+[data-motion='reduced'] .anim-bar,
+[data-motion='reduced'] .anim-ticker,
+[data-motion='reduced'] .anim-shake,
+[data-motion='reduced'] .anim-trace,
+[data-motion='reduced'] .anim-ring,
+[data-motion='reduced'] .anim-glow,
+[data-motion='reduced'] .anim-hud,
+[data-motion='reduced'] .stagger-children > * {
+  animation: none !important;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .anim-reveal,
+  .anim-sweep,
+  .anim-rise,
+  .anim-bar,
+  .anim-ticker,
+  .anim-shake,
+  .anim-trace,
+  .anim-ring,
+  .anim-glow,
+  .anim-hud,
+  .stagger-children > * {
+    animation: none !important;
+  }
+}

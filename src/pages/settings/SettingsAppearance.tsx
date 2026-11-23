@@ -3,6 +3,7 @@ import { Panel, PageHeader, Screen, StatCard, StatusPill, Select, Toggle, Slider
 import { ACCENTS, type AccentKey, usePrefs } from '@/services/prefs'
 import { PALETTE, Donut, ChartLegend } from '@/components/charts'
 import { cn } from '@/lib/utils'
+import { audio } from '@/services/audio'
 import { useState } from 'react'
 
 const SWATCHES = [
@@ -37,11 +38,12 @@ export default function SettingsAppearance() {
             <span className="badge badge-grey">{p.density.toUpperCase()}</span>
             <span className="badge badge-grey">{p.fontScale}%</span>
             <span className="badge badge-amber">{p.motion === 'full' ? 'MOTION FULL' : 'MOTION REDUCED'}</span>
+            <span className="badge badge-grey">{p.animIntensity.toUpperCase()}</span>
           </>
         }
         actions={
           <>
-            <button type="button" className="btn btn-sm" onClick={() => { p.set('accent', 'cyan'); p.set('density', 'comfortable'); p.set('fontScale', 100); p.set('motion', 'full'); p.set('texture', true) }}><RotateCcw size={11} /> Defaults</button>
+            <button type="button" className="btn btn-sm" onClick={() => { p.set('accent', 'cyan'); p.set('density', 'comfortable'); p.set('fontScale', 100); p.set('motion', 'full'); p.set('texture', true); p.set('animIntensity', 'standard') }}><RotateCcw size={11} /> Defaults</button>
             <button type="button" className="btn btn-sm btn-primary" onClick={() => setResetOpen(true)}><Sparkles size={11} /> Reset theme</button>
           </>
         }
@@ -93,6 +95,67 @@ export default function SettingsAppearance() {
               <span className="min-w-0"><span className="block text-[10.5px] text-ink-2">Texture overlay</span><span className="block text-[8.5px] text-ink-3">Grid and scanline atmosphere</span></span>
               <Toggle checked={p.texture} onChange={(v) => p.set('texture', v)} label="" />
             </div>
+          </Panel>
+
+          <Panel title="Animation Intensity" icon={Sparkles} subtitle="One multiplier drives every bespoke animation in the app">
+            <div className="grid gap-1.5 sm:grid-cols-3">
+              {([
+                { key: 'cinematic', label: 'Cinematic', scale: '1.35×', desc: 'Slower, heavier reveals. Blur and sweep on route change.' },
+                { key: 'standard', label: 'Standard', scale: '1×', desc: 'The designed default. Snappy, restrained.' },
+                { key: 'minimal', label: 'Minimal', scale: '0.35×', desc: 'Motion removed, state changes still visible.' },
+              ] as const).map((opt) => {
+                const active = p.animIntensity === opt.key
+                return (
+                  <button
+                    key={opt.key}
+                    type="button"
+                    onClick={() => { p.set('animIntensity', opt.key); audio.play('toggle') }}
+                    className={cn(
+                      'border p-2 text-left transition-colors',
+                      active ? 'border-[var(--accent)] bg-[var(--accent-soft)]' : 'border-line bg-bg hover:border-line-strong',
+                    )}
+                  >
+                    <div className="flex items-center justify-between">
+                      <span className="font-mono text-[10px] uppercase tracking-wider text-ink">{opt.label}</span>
+                      <span className="mono text-[8px] text-ink-3">{opt.scale}</span>
+                    </div>
+                    <p className="mt-0.5 text-[8.5px] leading-snug text-ink-3">{opt.desc}</p>
+                    <div className="mt-1.5 flex items-end gap-0.5">
+                      {Array.from({ length: 8 }).map((_, i) => (
+                        <span
+                          key={i}
+                          className={cn('flex-1', active ? 'bg-[var(--accent)]' : 'bg-[#1c2a36]')}
+                          style={{
+                            height: `${5 + ((i * 7) % 14)}px`,
+                            animation: active && opt.key !== 'minimal' ? `bar-grow calc(${opt.key === 'cinematic' ? 0.9 : 0.4}s / var(--anim-scale, 1)) ease-out ${i * 30}ms both` : undefined,
+                          }}
+                        />
+                      ))}
+                    </div>
+                  </button>
+                )
+              })}
+            </div>
+            <div className="mt-2 flex flex-wrap items-center gap-1.5">
+              <span className="mono text-[8px] text-ink-3">PREVIEW</span>
+              <span className="anim-reveal border border-line px-1.5 py-0.5 font-mono text-[8px] text-[var(--accent)]">reveal</span>
+              <span className="anim-ticker border border-line px-1.5 py-0.5 font-mono text-[8px] text-[var(--color-green)]">ticker</span>
+              <span className="anim-sweep border border-line px-1.5 py-0.5 font-mono text-[8px] text-[var(--color-amber)]">sweep</span>
+              <span className="anim-glow border border-line px-1.5 py-0.5 font-mono text-[8px] text-[var(--color-blue)]">glow</span>
+              <button
+                type="button"
+                className="btn btn-sm !py-0.5"
+                onClick={() => {
+                  // Re-trigger by remounting the preview classes.
+                  const el = document.getElementById('anim-preview-host')
+                  if (el) { el.classList.remove('anim-reveal', 'anim-ticker', 'anim-sweep', 'anim-glow'); void el.offsetWidth; el.classList.add('anim-reveal') }
+                }}
+              >Replay</button>
+            </div>
+            <Divider />
+            <p className="text-[9px] leading-relaxed text-ink-3">
+              Reduced motion (System) overrides this setting entirely and is honoured before any animation runs.
+            </p>
           </Panel>
 
           <Panel title="Design Tokens" icon={Eye}>
@@ -164,6 +227,7 @@ export default function SettingsAppearance() {
               items={[
                 { k: 'Contrast mode', v: 'TOKENS FIXED' },
                 { k: 'Reduced motion', v: p.motion === 'reduced' ? 'ON' : 'OFF' },
+                { k: 'Anim intensity', v: p.animIntensity.toUpperCase() },
                 { k: 'Min font', v: `${Math.round(9 * (p.fontScale / 100))} px` },
               ]}
             />

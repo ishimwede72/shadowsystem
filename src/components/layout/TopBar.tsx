@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import {
   Bell, Search, Command, Fullscreen, HelpCircle, Menu, SlidersHorizontal,
-  Gauge, Pause, Play, Siren, Volume2, VolumeX, Wifi, Radio,
+  Gauge, Pause, Play, Siren, Volume2, VolumeX, Wifi, Radio, Circle,
 } from 'lucide-react'
 import { NAV_GROUPS, resolvePageTitle } from '@/config/nav'
 import { cn, fmtClock, pad } from '@/lib/utils'
@@ -11,6 +11,7 @@ import { useEngine, selectOperator, unreadCount } from '@/services/engine'
 import { usePrefs } from '@/services/prefs'
 import { Avatar, StatusPill } from '@/components/ui'
 import type { SimSpeed } from '@/services/engine'
+import { useRecorder } from '@/services/recorder'
 
 export function TopBar({
   onOpenMenu,
@@ -41,6 +42,7 @@ export function TopBar({
   const setPref = usePrefs((s) => s.set)
   const [speedOpen, setSpeedOpen] = useState(false)
   const [clock, setClock] = useState(Date.now())
+  const recorder = useRecorder()
   const speedRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
@@ -106,6 +108,20 @@ export function TopBar({
         >
           <Command size={15} />
         </button>
+
+        {recorder.recording && (
+          <button
+            type="button"
+            onClick={() => navigate('/missions/recorder')}
+            title="Recording — open the scenario recorder"
+            aria-label="Recording in progress, open scenario recorder"
+            className="flex items-center gap-1.5 border border-[var(--color-red)]/50 bg-[color-mix(in_srgb,var(--color-red)_12%,transparent)] px-2 py-1 transition-colors hover:bg-[color-mix(in_srgb,var(--color-red)_20%,transparent)]"
+          >
+            <Circle size={8} className="animate-[pulse-dot_1.4s_ease-in-out_infinite] fill-[var(--color-red)] text-[var(--color-red)]" />
+            <span className="font-mono text-[9px] uppercase tracking-wider text-[var(--color-red)]">REC</span>
+            <span className="mono text-[9px] tabular text-ink-2">{recorder.live.length}</span>
+          </button>
+        )}
 
         {/* simulation clock + controls */}
         <div className="hidden items-center gap-1.5 border border-line bg-bg px-2 py-1 xl:flex" ref={speedRef}>

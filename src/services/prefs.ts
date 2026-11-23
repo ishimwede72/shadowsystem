@@ -13,6 +13,8 @@ export const ACCENTS: Record<AccentKey, { color: string; label: string }> = {
 
 export type Density = 'compact' | 'comfortable' | 'spacious'
 export type MotionLevel = 'full' | 'reduced'
+/** Drives the CSS --anim-scale multiplier and framer-motion defaults. */
+export type AnimIntensity = 'cinematic' | 'standard' | 'minimal'
 
 export interface PrefsState {
   accent: AccentKey
@@ -22,6 +24,10 @@ export interface PrefsState {
   texture: boolean
   soundEnabled: boolean
   volume: number
+  ambient: boolean
+  animIntensity: AnimIntensity
+  /** Cues the operator has switched off individually. */
+  mutedCues: string[]
   sidebarCollapsed: boolean
   defaultLanding: string
   favoriteModules: string[]
@@ -44,6 +50,9 @@ const DEFAULTS = {
   texture: true,
   soundEnabled: false,
   volume: 0.4,
+  ambient: false,
+  animIntensity: 'standard' as AnimIntensity,
+  mutedCues: [] as string[],
   sidebarCollapsed: false,
   defaultLanding: '/command-center',
   favoriteModules: ['command', 'missions', 'finance'],

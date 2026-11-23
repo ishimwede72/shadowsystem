@@ -3,6 +3,7 @@ import { cn, pad, fmtNum } from '@/lib/utils'
 import { ChevronDown, ChevronRight, X, AlertTriangle, Inbox } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 import type { Severity, RiskLevel } from '@/types'
+import { audio } from '@/services/audio'
 
 // ---------------------------------------------------------------- Panel -----
 export function Panel({
@@ -67,13 +68,14 @@ export function PageHeader({
   meta?: ReactNode
 }) {
   return (
-    <div className="flex flex-col gap-3 border-b border-line-soft pb-3 sm:flex-row sm:items-end sm:justify-between">
+    <div className="relative flex flex-col gap-3 border-b border-line-soft pb-3 sm:flex-row sm:items-end sm:justify-between">
+      <span className="anim-sweep pointer-events-none absolute -bottom-px left-0 h-px w-full bg-gradient-to-r from-[var(--accent)] via-[var(--accent)]/40 to-transparent" />
       <div className="min-w-0">
-        <div className="mb-1 flex items-center gap-2">
+        <div className="anim-reveal mb-1 flex items-center gap-2">
           {Icon && <Icon size={13} className="text-[var(--accent)]" />}
           {eyebrow && <span className="label-xs text-[var(--accent)]">{eyebrow}</span>}
         </div>
-        <h1 className="page-title text-xl text-ink sm:text-2xl">{title}</h1>
+        <h1 className="page-title anim-reveal text-xl text-ink sm:text-2xl" style={{ animationDelay: '45ms' }}>{title}</h1>
         {subtitle && <p className="mt-1 max-w-2xl text-xs text-ink-2">{subtitle}</p>}
         {meta && <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1">{meta}</div>}
       </div>
@@ -196,11 +198,16 @@ export function StatCard({
       type="button"
       onClick={onClick}
       className={cn(
-        'panel corner-marks group relative overflow-hidden p-3 text-left transition-colors',
-        onClick && 'cursor-pointer hover:border-[color-mix(in_srgb,var(--accent)_45%,var(--color-line))]',
+        'panel corner-marks group relative overflow-hidden p-3 text-left transition-all duration-200',
+        onClick && 'cursor-pointer hover:-translate-y-px hover:border-[color-mix(in_srgb,var(--accent)_45%,var(--color-line))]',
       )}
     >
-      <div className="flex items-start justify-between gap-2">
+      {/* corner wash that brightens on hover */}
+      <span
+        className="pointer-events-none absolute -right-6 -top-6 h-16 w-16 rounded-full opacity-0 blur-2xl transition-opacity duration-300 group-hover:opacity-40"
+        style={{ background: c }}
+      />
+      <div className="relative flex items-start justify-between gap-2">
         <span className="label-xs truncate">{label}</span>
         {Icon && <Icon size={14} style={{ color: c }} className="shrink-0 opacity-80" />}
       </div>
@@ -277,7 +284,7 @@ export function Tabs({
           <button
             key={t.id}
             type="button"
-            onClick={() => onChange(t.id)}
+            onClick={() => { audio.play('navigate'); onChange(t.id) }}
             className={cn(
               'relative -mb-px flex items-center gap-1.5 border-b border-transparent px-2.5 font-mono uppercase tracking-wider transition-colors',
               size === 'sm' ? 'py-1.5 text-[9px]' : 'py-2 text-[10px]',
@@ -368,6 +375,7 @@ export function Modal({
     }
     window.addEventListener('keydown', onKey)
     document.body.style.overflow = 'hidden'
+    audio.play('panelOpen')
     return () => {
       window.removeEventListener('keydown', onKey)
       document.body.style.overflow = ''
@@ -492,7 +500,7 @@ export function Toggle({
         aria-checked={checked}
         aria-label={label}
         disabled={disabled}
-        onClick={() => onChange(!checked)}
+        onClick={() => { audio.play('toggle'); onChange(!checked) }}
         className={cn(
           'relative h-4 w-8 shrink-0 rounded-full border transition-colors',
           checked ? 'border-[color-mix(in_srgb,var(--accent)_60%,transparent)] bg-[color-mix(in_srgb,var(--accent)_30%,transparent)]' : 'border-line bg-[#0d151d]',

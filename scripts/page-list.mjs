@@ -84,6 +84,7 @@ export const PAGES = [
   "missions/ActiveMissions",
   "missions/MissionHistory",
   "missions/Templates",
+  "missions/ScenarioRecorder",
   "reports/ReportsOverview",
   "reports/FinancialReports",
   "reports/CyberReports",

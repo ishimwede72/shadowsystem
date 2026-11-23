@@ -435,6 +435,7 @@ export const useEngine = create<EngineState>()(
           })
           set({ assets })
           get().emit('FINANCE.SWAP_COMPLETED', { from, to, fromAmount, result }, 'low')
+          audio.play('uplink')
           get().notify({ type: 'success', title: 'Simulated swap executed', body: `${fromAmount} ${from} → ${result.toFixed(6)} ${to}`, severity: 'low', module: 'finance' })
         },
 
@@ -471,6 +472,7 @@ export const useEngine = create<EngineState>()(
           set({ targets })
           const t = targets.find((x) => x.id === id)!
           get().emit(t.moving ? 'GEOINT.TARGET_TRACKING_STARTED' : 'GEOINT.TARGET_TRACKING_PAUSED', { targetId: id, codename: t.codename })
+          if (t.moving) audio.play('lockOn')
         },
 
         addGeofence: (g) => {

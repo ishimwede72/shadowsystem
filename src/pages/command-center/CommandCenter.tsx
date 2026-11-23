@@ -16,6 +16,7 @@ import { useEngine, selectOperator } from '@/services/engine'
 import { cn, fmtMoney, fmtCompact, fmtTime, relTime } from '@/lib/utils'
 import { CITIES } from '@/data/vocabulary'
 import type { ModuleKey } from '@/types'
+import { WorldClockPanel } from '@/components/layout/WorldClock'
 
 interface WidgetDef {
   id: string
@@ -34,6 +35,7 @@ const WIDGETS: WidgetDef[] = [
   { id: 'network', label: 'Network Telemetry', module: 'network', span: 2 },
   { id: 'threat', label: 'Threat Surface', module: 'cyber', span: 1 },
   { id: 'surveillance', label: 'Surveillance Matrix', module: 'surveillance', span: 1 },
+  { id: 'clock', label: 'World Clock', module: 'geoint', span: 1 },
   { id: 'ai', label: 'SHADOW AI Brief', module: 'ai', span: 2 },
 ]
 
@@ -230,7 +232,7 @@ export default function CommandCenter() {
       />
 
       {/* metrics */}
-      <div className={cn('grid grid-cols-2 sm:grid-cols-4 xl:grid-cols-8', gap)}>
+      <div className={cn('grid grid-cols-2 sm:grid-cols-4 xl:grid-cols-8', gap, 'stagger-children')}>
         <StatCard label="Simulated Operations" value={s.transactions.length * 4 + s.activity.length * 3} icon={Activity} accent="cyan" delta={{ value: 12.4 }} sub="all-time" />
         <StatCard label="Active Missions" value={activeMissions.length} icon={Crosshair} accent="amber" sub={`${s.missions.length} total`} onClick={() => navigate('/missions/active')} />
         <StatCard label="Connected Nodes" value={s.networkNodes.filter((n) => n.status !== 'offline').length} icon={Network} accent="blue" sub={`of ${s.networkNodes.length} simulated`} onClick={() => navigate('/network/topology')} />
@@ -465,6 +467,8 @@ export default function CommandCenter() {
                   </div>
                 </Panel>
               )}
+
+              {w.id === 'clock' && <WorldClockPanel compact className="h-[400px]" />}
 
               {w.id === 'threat' && (
                 <Panel title="Threat Surface" icon={ShieldCheck} subtitle="Simulated severity mix" actions={<button type="button" className="icon-btn" aria-label="Open /cyber" title="Open /cyber" onClick={() => navigate('/cyber')}><ArrowUpRight size={13} /></button>}>

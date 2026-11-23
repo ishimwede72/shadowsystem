@@ -222,6 +222,7 @@ export const NAV_GROUPS: NavGroup[] = [
       { label: 'Active', to: '/missions/active' },
       { label: 'History', to: '/missions/history' },
       { label: 'Templates', to: '/missions/templates' },
+      { label: 'Recorder', to: '/missions/recorder' },
     ],
   },
   {

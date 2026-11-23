@@ -3,6 +3,7 @@ import { Routes, Route, Navigate } from 'react-router-dom'
 import { AppShell } from '@/components/layout/AppShell'
 import { BootSequence } from '@/components/layout/BootSequence'
 import { usePrefs } from '@/services/prefs'
+import { attachRecorder, startPlaybackClock } from '@/services/recorder'
 import { useEffect } from 'react'
 import { ACCENTS } from '@/services/prefs'
 import { audio } from '@/services/audio'
@@ -139,6 +140,8 @@ const SettingsShortcuts = lazy(() => import('@/pages/settings/SettingsShortcuts'
 const SettingsSimulation = lazy(() => import('@/pages/settings/SettingsSimulation'))
 const SettingsData = lazy(() => import('@/pages/settings/SettingsData'))
 
+const ScenarioRecorder = lazy(() => import('@/pages/missions/ScenarioRecorder'))
+
 const NotFound = lazy(() => import('@/pages/system/NotFound'))
 
 export default function App() {
@@ -149,6 +152,19 @@ export default function App() {
   const volume = usePrefs((s) => s.volume)
   const fontScale = usePrefs((s) => s.fontScale)
   const texture = usePrefs((s) => s.texture)
+  const animIntensity = usePrefs((s) => s.animIntensity)
+  const ambient = usePrefs((s) => s.ambient)
+  const mutedCues = usePrefs((s) => s.mutedCues)
+
+  // The recorder listens to the engine bus for the whole session, and its
+  // playback clock ticks independently of whichever page is mounted.
+  useEffect(() => {
+    const detach = attachRecorder()
+    startPlaybackClock()
+    return () => {
+      detach()
+    }
+  }, [])
 
   useEffect(() => {
     const color = ACCENTS[accent].color
@@ -181,6 +197,24 @@ export default function App() {
   useEffect(() => {
     audio.setVolume(volume)
   }, [volume])
+
+  // Ambient bed follows both its own switch and the master sound switch.
+  useEffect(() => {
+    audio.setAmbient(ambient && soundEnabled)
+  }, [ambient, soundEnabled])
+
+  // Per-cue muting is a data concern, not an audio-graph one.
+  useEffect(() => {
+    audio.setMutedCues(mutedCues as never[])
+  }, [mutedCues])
+
+  // 1 = cinematic, 0.6 = standard, 0.25 = minimal. Consumed by CSS and by
+  // framer-motion wrappers so the whole app speeds up or calms down together.
+  useEffect(() => {
+    const scale = animIntensity === 'cinematic' ? 1.35 : animIntensity === 'minimal' ? 0.35 : 1
+    document.documentElement.style.setProperty('--anim-scale', String(scale))
+    document.documentElement.dataset.anim = animIntensity
+  }, [animIntensity])
 
   return (
     <ErrorBoundary>
@@ -288,6 +322,7 @@ export default function App() {
           <Route path="/missions/active" element={<ActiveMissions />} />
           <Route path="/missions/history" element={<MissionHistory />} />
           <Route path="/missions/templates" element={<Templates />} />
+          <Route path="/missions/recorder" element={<ScenarioRecorder />} />
 
           <Route path="/reports" element={<ReportsOverview />} />
           <Route path="/reports/financial" element={<FinancialReports />} />

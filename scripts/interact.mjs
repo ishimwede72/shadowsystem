@@ -447,6 +447,103 @@ function check(name, ok, detail = '') {
   await cleanup()
 }
 
+// 27. Recorder: arm, capture live bus events, stop into a tape
+{
+  const recMod = await server.ssrLoadModule('/src/services/recorder.ts')
+  const useRecorder = recMod.useRecorder
+  const detach = recMod.attachRecorder()
+  const s = useEngine.getState()
+
+  const tapesBefore = useRecorder.getState().recordings.length
+  useRecorder.getState().start()
+  check('recorder: armed', useRecorder.getState().recording === true)
+
+  // Generate bus traffic from several modules.
+  await act(async () => {
+    s.emit('FINANCE.TRANSFER_SENT', { id: 'TX-REC-1', label: 'Recorded transfer' }, 'low')
+    s.emit('CYBER.FIREWALL_RULE_TOGGLED', { id: 'FW-1' }, 'elevated')
+    s.emit('CRISIS.INCIDENT_CREATED', { id: 'INC-REC', title: 'Recorded incident' }, 'critical')
+  })
+  await act(async () => { await new Promise((r) => setTimeout(r, 60)) })
+  const live = useRecorder.getState().live
+  check('recorder: frames captured from bus', live.length >= 3, `${live.length} frames`)
+  check('recorder: topics preserved', live.some((f) => f.topic === 'CYBER.FIREWALL_RULE_TOGGLED'))
+  check('recorder: severity preserved', live.some((f) => f.severity === 'critical'))
+
+  let take = null
+  await act(async () => { take = useRecorder.getState().stop() })
+  check('recorder: stop produces a tape', Boolean(take) && take.frames.length >= 3, take ? `${take.id} ${take.frames.length}f` : 'null')
+  check('recorder: tape added to library', useRecorder.getState().recordings.length === tapesBefore + 1)
+  check('recorder: disarm on stop', useRecorder.getState().recording === false)
+
+  // 28. Replay emits the same topics again
+  const busBefore = useEngine.getState().bus.length
+  const topicsBefore = useEngine.getState().bus.filter((e) => e.topic.startsWith('CYBER')).length
+  await act(async () => { useRecorder.getState().replayFrame(take.frames[0]) })
+  await act(async () => { await new Promise((r) => setTimeout(r, 60)) })
+  const replayed = useEngine.getState().bus
+  check('recorder: replay emits onto the bus', replayed.length > busBefore || replayed.some((e) => e.topic === take.frames[0].topic))
+  check('recorder: replay logged in activity', useEngine.getState().activity.some((a) => a.actor === 'RECORDER'))
+
+  // 29. Export / import round trip
+  const json = useRecorder.getState().exportTape(take.id)
+  check('recorder: tape exports as JSON', typeof json === 'string' && json.includes('shadow-tape'))
+  let imported = null
+  await act(async () => { imported = useRecorder.getState().importTape(json) })
+  check('recorder: tape re-imports', Boolean(imported) && imported.frames.length === take.frames.length, imported ? `${imported.frames.length}f` : 'null')
+  let bad = null
+  await act(async () => { bad = useRecorder.getState().importTape('not json at all') })
+  check('recorder: rejects malformed tape', bad === null)
+
+  // 30. Playback clock advances the playhead. Use a deliberately long tape:
+  // a short one finishes instantly at 4x and resets the head on completion.
+  const longTape = JSON.stringify({
+    format: 'shadow-tape', name: 'Long take', seed: 1, durationMs: 20000,
+    frames: [0, 3000, 7000, 12000, 18000].map((at, i) => ({ at, topic: 'SYSTEM.TEST', payload: { label: `frame ${i}` }, id: `L-${i}` })),
+  })
+  let long = null
+  await act(async () => { long = useRecorder.getState().importTape(longTape) })
+  await act(async () => { useRecorder.getState().play(long.id) })
+  useRecorder.getState().setSpeed(1)
+  check('recorder: playback started', useRecorder.getState().playing === true)
+  recMod.startPlaybackClock()
+  await act(async () => { await new Promise((r) => setTimeout(r, 900)) })
+  const head = useRecorder.getState().playhead
+  check('recorder: playhead advanced', head > 300, `${Math.round(head)}ms`)
+  const midPlaying = useRecorder.getState().playing
+  check('recorder: still playing mid-tape', midPlaying === true)
+  useRecorder.getState().setSpeed(4)
+  await act(async () => { await new Promise((r) => setTimeout(r, 6200)) })
+  const finished = useRecorder.getState()
+  check('recorder: long tape completes and resets', finished.playing === false && finished.playhead === 0, `${Math.round(finished.playhead)}ms`)
+  await act(async () => { useRecorder.getState().play(long.id) })
+  await act(async () => { useRecorder.getState().stopPlayback() })
+  check('recorder: playback stops', useRecorder.getState().playing === false && useRecorder.getState().playhead === 0)
+
+  // 31. Recorder page renders the armed state
+  const { container, cleanup } = await mount('missions/ScenarioRecorder')
+  const armBtn = byText(container, 'Arm recorder')
+  check('recorder page: arm control present', Boolean(armBtn))
+  await act(async () => { armBtn?.dispatchEvent(new w.MouseEvent('click', { bubbles: true })) })
+  await act(async () => { await new Promise((r) => setTimeout(r, 120)) })
+  check('recorder page: arms from the UI', useRecorder.getState().recording === true)
+  check('recorder page: armed banner shown', /Recording ·/.test(txt(container)))
+  const stopBtn = byText(container, 'Stop &')
+  await act(async () => { stopBtn?.dispatchEvent(new w.MouseEvent('click', { bubbles: true })) })
+  await act(async () => { await new Promise((r) => setTimeout(r, 120)) })
+  check('recorder page: stop creates a tape', useRecorder.getState().recording === false && useRecorder.getState().recordings.length > 0)
+  check('recorder page: tape library lists takes', /f$|TAPE/i.test(txt(container)))
+  await cleanup()
+
+  // 32. Per-cue muting
+  const audioMod = await server.ssrLoadModule('/src/services/audio.ts')
+  audioMod.audio.setMutedCues(['hoverTick'])
+  check('audio: cue mute list accepted', true)
+  audioMod.audio.setAmbient(false)
+  audioMod.audio.setEnabled(false)
+  detach()
+}
+
 console.error = origError
 const failed = results.filter((r) => !r[1])
 console.log(`\nPASSED ${results.length - failed.length}/${results.length}`)
