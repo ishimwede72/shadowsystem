@@ -112,7 +112,7 @@ export default function CyberEncryption() {
 
         <div className="space-y-3">
           <Panel title="Byte View" icon={Cpu} subtitle="First 16 bytes of input">
-            <div className="grid grid-cols-8 gap-1">
+            <div className="grid grid-cols-4 gap-1 sm:grid-cols-8">
               {byteRows.map((b, i) => (
                 <div key={i} className="border border-line-soft p-1 text-center">
                   <p className="mono text-[9.5px] text-[var(--accent)]">{b.toString(16).padStart(2, '0').toUpperCase()}</p>

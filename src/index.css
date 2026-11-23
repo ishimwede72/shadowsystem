@@ -157,6 +157,20 @@
     border: 1px solid var(--color-line-soft);
   }
 
+  /* Tables render full-width without their own scroll wrapper. Widening rule:
+     when a table is the direct child of a panel body, let that body scroll
+     horizontally so wide tables never push the panel past its grid cell.
+     Scoped with :has() so chart/body panels and inline modals are unaffected. */
+  .panel > div:has(> table) {
+    overflow-x: auto;
+  }
+
+  /* Tables nested one level deeper (e.g. inside a list row) get the same
+     treatment, unless the panel also contains a chart. */
+  .panel > div:has(table):not(:has(.recharts-wrapper)) {
+    overflow-x: auto;
+  }
+
   .panel-header {
     display: flex;
     align-items: center;

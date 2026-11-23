@@ -94,23 +94,46 @@ Components live in `src/components/ui` (`Panel`, `PageHeader`, `StatCard`, `Tabs
 
 ## Verification
 
-The repo ships four harnesses under `scripts/` (dev-only; they need `jsdom` installed via `npm i -D jsdom`):
+`jsdom` is a dev dependency, so the harnesses run straight from a fresh clone. Everything is wired to one command:
 
 ```bash
-npx tsc -b --noEmit            # strict type check, 0 errors
-npx vite build                 # production bundle
-node scripts/smoke.mjs         # server-renders all 97 pages
-node scripts/mount.mjs         # client-mounts pages in jsdom (effects + charts)
-node scripts/app-check.mjs /finance /missions/active   # full router + shell per route
-node scripts/interact.mjs      # 40 click-through behaviour assertions
+npm run verify     # type check + lint + structural review + render + audit + interactions
 ```
 
-Current status: **type check clean · production build clean · 97/97 pages render · 102/102 routes mount · 40/40
-interactions pass.**
+Or run the pieces individually:
+
+```bash
+npx tsc -b --noEmit            # strict type check
+npx vite build                 # production bundle
+npm run lint                   # oxlint (0 errors)
+node scripts/review.mjs        # structural/visual review of all 98 pages
+node scripts/smoke.mjs         # server-renders all 98 pages
+node scripts/mount.mjs         # client-mounts pages in jsdom (effects + timers)
+node scripts/app-check.mjs /finance /missions/active   # full router + shell per route
+node scripts/audit.mjs         # content + accessibility audit
+node scripts/interact.mjs      # 51 click-through behaviour assertions
+```
+
+| Harness | What it protects |
+| --- | --- |
+| `review.mjs` | Layout regressions: tables that overflow, skipped heading levels, missing `h1`, absurd numbers, cloned rows |
+| `smoke.mjs` | Every page renders server-side without crashing (catches bad hooks/props) |
+| `mount.mjs` | Every page mounts in a real DOM, effects and timers included (catches runtime errors SSR hides) |
+| `app-check.mjs` | Each route resolves through the real `App` router and renders the shell with a sensible title |
+| `audit.mjs` | No `NaN`/`undefined`/`TODO` leakage into the UI; every button, input and image has an accessible name |
+| `interact.mjs` | The flows actually do something: crisis escalation, dispatch, report compile, mission launch, settings, … |
+
+`scripts/page-list.mjs` is the single inventory of pages that all harnesses read from — add a page there once and every
+check covers it.
+
+Current status: **type check clean · lint 0 errors · production build clean · 98/98 pages render · 98/98 mount with zero
+warnings · 101/101 routes render the shell · 0 placeholder leaks · 0 accessibility findings · 51/51 interactions pass.**
 
 ## Accessibility & ergonomics
 
 - Full keyboard model: command palette, `G`-prefixed navigation, `Ctrl/⌘ + B/N/M`, `Esc` to dismiss.
+- Semantics audited by `scripts/audit.mjs`: one `h1` per page with no skipped heading levels, accessible names on every
+  icon-only control, labelled filter selects, alt text on images, and visible focus rings throughout.
 - `prefers`-style switches for reduced motion and texture; density and font scale are independent.
 - Audio cues are synthesised with the Web Audio API on demand — no autoplay, no asset files, off by default.
 

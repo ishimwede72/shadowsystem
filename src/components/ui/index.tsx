@@ -37,7 +37,7 @@ export function Panel({
           <div className="flex min-w-0 items-center gap-2">
             {Icon && <Icon size={13} className="shrink-0 text-[var(--accent)]" />}
             <div className="min-w-0">
-              {title && <h3 className="truncate font-mono text-[10px] font-medium uppercase tracking-[0.16em] text-ink">{title}</h3>}
+              {title && <h2 className="truncate font-mono text-[10px] font-medium uppercase tracking-[0.16em] text-ink">{title}</h2>}
               {subtitle && <p className="truncate text-[10px] text-ink-3">{subtitle}</p>}
             </div>
             {badge}
